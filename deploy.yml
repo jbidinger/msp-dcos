@@ -1,0 +1,75 @@
+---
+
+- hosts: all
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+    - name: required packages
+      yum:
+        name: '{{ item }}'
+        state: installed
+        update_cache: yes
+      with_items:
+        - tar
+        - xz
+        - unzip
+        - curl
+        - ipset
+
+- hosts: boot
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+  - name: ssh private key
+    copy:
+      src: files/id_rsa
+      dest: /root/.ssh/id_rsa
+      owner: root
+      group: root
+      mode: 0600
+  - name: ssh public key
+    copy:
+      src: files/id_rsa.pub
+      dest: /root/.ssh/id_rsa.pub
+      owner: root
+      group: root
+      mode: 0644
+
+
+
+- hosts: master:agent
+  remote_user: root
+  gather_facts: no
+  vars:
+    docker_version: 'docker-engine-1.11.2'
+
+  tasks:
+    - name: authorized ssh_keys
+      authorized_key:
+        user: root
+        state: present
+        manage_dir: no
+        key: '{{ item }}'
+      with_file:
+        - 'files/id_rsa.pub'
+
+    - name: Docker Repo
+      get_url:
+        url: 'https://docs.docker.com/engine/installation/linux/repo_files/centos/docker.repo'
+        dest: '/etc/yum.repos.d/docker.repo'
+        mode: 0644
+
+    - name: Install Docker
+      yum:
+        name: '{{ docker_version }}'
+        state: installed
+        update_cache: yes
+
+    - name: Docker Service
+      service: 
+        name: docker
+        enabled: yes
+        state: started
+

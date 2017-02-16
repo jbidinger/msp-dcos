@@ -1,0 +1,12 @@
+[boot]
+msp-dcosboot-01.ad.mgage.io   role=boot
+
+[master]
+msp-dcosmas-01.ad.mgage.io    role=master
+msp-dcosmas-02.ad.mgage.io    role=master
+msp-dcosmas-03.ad.mgage.io    role=master
+
+[agent]
+msp-dcosagt-01.ad.mgage.io    role=agent
+msp-dcosagt-02.ad.mgage.io    role=agent
+msp-dcosagt-03.ad.mgage.io    role=agent
