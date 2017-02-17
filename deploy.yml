@@ -3,6 +3,8 @@
 - hosts: all
   remote_user: root
   gather_facts: no
+  vars:
+    docker_version: 'docker-engine-1.11.2'
 
   tasks:
     - name: required packages
@@ -16,44 +18,6 @@
         - unzip
         - curl
         - ipset
-
-- hosts: boot
-  remote_user: root
-  gather_facts: no
-
-  tasks:
-  - name: ssh private key
-    copy:
-      src: files/id_rsa
-      dest: /root/.ssh/id_rsa
-      owner: root
-      group: root
-      mode: 0600
-  - name: ssh public key
-    copy:
-      src: files/id_rsa.pub
-      dest: /root/.ssh/id_rsa.pub
-      owner: root
-      group: root
-      mode: 0644
-
-
-
-- hosts: master:agent
-  remote_user: root
-  gather_facts: no
-  vars:
-    docker_version: 'docker-engine-1.11.2'
-
-  tasks:
-    - name: authorized ssh_keys
-      authorized_key:
-        user: root
-        state: present
-        manage_dir: no
-        key: '{{ item }}'
-      with_file:
-        - 'files/id_rsa.pub'
 
     - name: Docker Repo
       get_url:
@@ -72,4 +36,68 @@
         name: docker
         enabled: yes
         state: started
+
+- hosts: master:agent
+  remote_user: root
+  gather_facts: no
+  
+  tasks:
+    - name: authorized ssh_keys
+      authorized_key:
+        user: root
+        state: present
+        manage_dir: no
+        key: '{{ item }}'
+      with_file:
+        - 'files/id_rsa.pub'
+    - name: nogroup group
+      group:
+        name: nogroup
+        state: present
+        gid: 1000
+
+- hosts: boot
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+    - name: Create genconf directory
+      file: 
+        path: /root/genconf 
+        state: directory 
+        owner: root 
+        group: root
+        mode: 0755  
+    - name: ssh private key
+      copy:
+        src: files/id_rsa
+        dest: /root/genconf/ssh_key
+        owner: root
+        group: root
+        mode: 0600
+    - name: DC/OS config.yml
+      copy:
+        src: files/config.yaml
+        dest: /root/genconf/config.yaml
+        owner: root
+        group: root
+        mode: 0644
+    - name: ip-detect script
+      copy:
+        src: files/ip-detect
+        dest: /root/genconf/ip-detect
+        owner: root
+        group: root
+        mode: 0544        
+    - name: Setup file
+      get_url:
+        url: 'https://downloads.dcos.io/dcos/stable/dcos_generate_config.sh?_ga=1.44967972.126818165.1487270716'
+        dest: '/root/dcos_generate_config.sh'
+        mode: 0500
+    - name: genconf
+      shell: /root/dcos_generate_config.sh --genconf >> dcos_config.log
+      args:
+        executable: /bin/bash
+        chdir: /root
+
 

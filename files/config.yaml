@@ -1,0 +1,23 @@
+---
+cluster_name: 'MSP DCOS 01'
+master_discovery: master_http_loadbalancer
+exhibitor_address: 10.254.18.25
+num_masters: 3
+master_list:
+- 10.254.8.21
+- 10.254.8.22
+- 10.254.8.23
+exhibitor_storage_backend: 'static'
+resolvers:
+- 10.254.2.201
+- 10.254.2.202
+process_timeout: 600
+bootstrap_url: file:///opt/dcos_install_tmp
+log_directory: /root/genconf/logs
+agent_list:
+  - 10.254.8.24
+  - 10.254.8.25
+  - 10.254.8.26
+ssh_key_path: genconf/ssh_key
+ssh_port: 22
+ssh_user: root
