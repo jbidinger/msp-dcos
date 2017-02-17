@@ -31,42 +31,49 @@
         state: installed
         update_cache: yes
 
-    - name: docker volume group
-      lvg:
-        vg: docker
-        pvs: /dev/sdb
-    # lvcreate --wipesignatures y -n thinpool docker -l 95%VG
-    - name: docker lvs thinpool
-      lvol:
-        lv: thinpool
-        vg: docker
-        size: '95%VG'
-        opts: '--wipesignatures y'
+    - name: Check docker thinpool
+      command: '/usr/sbin/vgs docker'
+      register: vgs_docker
 
-    #lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG    
-    - name: docker lvs thinpoolmeta
-      lvol:
-        lv: thinpoolmeta
-        vg: docker
-        size: '1%VG'
-        opts: '--wipesignatures y'
+    - block:
+      - name: docker volume group
+        lvg:
+          vg: docker
+          pvs: /dev/sdb
+      # lvcreate --wipesignatures y -n thinpool docker -l 95%VG
+      - name: docker lvs thinpool
+        lvol:
+          lv: thinpool
+          vg: docker
+          size: '95%VG'
+          opts: '--wipesignatures y'
 
-    - name: make lv thin
-      command: '/usr/sbin/lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta'
+      #lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG    
+      - name: docker lvs thinpoolmeta
+        lvol:
+          lv: thinpoolmeta
+          vg: docker
+          size: '1%VG'
+          opts: '--wipesignatures y'
 
-    - name: docker-thinpool profile
-      copy:
-        src: files/docker-thinpool.profile
-        dest: /etc/lvm/profile/docker-thinpool.profile
-        owner: root
-        group: root
-        mode: 0444
+      - name: make lv thin
+        command: '/usr/sbin/lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta'
 
-    - name: Apply lvm profile to thin pool
-      command: '/usr/sbin/lvchange --metadataprofile docker-thinpool docker/thinpool'
+      - name: docker-thinpool profile
+        copy:
+          src: files/docker-thinpool.profile
+          dest: /etc/lvm/profile/docker-thinpool.profile
+          owner: root
+          group: root
+          mode: 0444
 
-    - name: Enable lv monitoring
-      command: '/usr/sbin/lvs -o+seg_monitor'
+      - name: Apply lvm profile to thin pool
+        command: '/usr/sbin/lvchange --metadataprofile docker-thinpool docker/thinpool'
+
+      - name: Enable lv monitoring
+        command: '/usr/sbin/lvs -o+seg_monitor'
+    
+      when: vgs_docker.rc != 0
 
     - name: docker systemd conf directory
       file: 
