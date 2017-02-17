@@ -34,6 +34,7 @@
     - name: Check docker thinpool
       command: '/usr/sbin/vgs docker'
       register: vgs_docker
+      ignore_errors: yes
 
     - block:
       - name: docker volume group
