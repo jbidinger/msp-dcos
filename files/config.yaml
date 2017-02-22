@@ -2,12 +2,12 @@
 cluster_name: 'MSP DCOS 01'
 master_discovery: master_http_loadbalancer
 exhibitor_address: 10.254.18.25
+exhibitor_storage_backend: static
 num_masters: 3
 master_list:
 - 10.254.8.21
 - 10.254.8.22
 - 10.254.8.23
-exhibitor_storage_backend: 'static'
 resolvers:
 - 10.254.2.201
 - 10.254.2.202

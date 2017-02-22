@@ -7,6 +7,16 @@
     docker_version: 'docker-engine-1.11.2'
 
   tasks:
+    - name: make /tmp exec-able
+      command: '/usr/bin/mount -o remount,exec /tmp'
+    - name: Modify fstab for /tmp exec-able
+      mount:
+        name: /tmp
+        src: /dev/mapper/vg_00-lv_tmp
+        opts: nodev,nosuid,exec
+        fstype: xfs
+        state: present
+
     - name: required packages
       yum:
         name: '{{ item }}'
@@ -86,7 +96,7 @@
     - name: docker systemd configuration
       copy:
         src: files/docker.conf
-        dest: /etc/systemd/system/docker.service.d/docker.conf
+        dest: /etc/systemd/system/docker.service.d/override.conf
         owner: root
         group: root
         mode: 0644
@@ -97,7 +107,7 @@
       service: 
         name: docker
         enabled: yes
-        state: started
+        state: restarted
 
 - hosts: master:agent
   remote_user: root
@@ -157,9 +167,27 @@
         dest: '/root/dcos_generate_config.sh'
         mode: 0500
     - name: genconf
-      shell: /root/dcos_generate_config.sh --genconf >> dcos_config.log
+      shell: /root/dcos_generate_config.sh --genconf >> dcos_config.log 2>&1
       args:
         executable: /bin/bash
         chdir: /root
-
-
+    - name: prereq
+      shell: /root/dcos_generate_config.sh --install-prereqs >> dcos_prereq.log 2>&1
+      args:
+        executable: /bin/bash
+        chdir: /root
+    - name: preflight
+      shell: /root/dcos_generate_config.sh --preflight >> dcos_preflight.log 2>&1
+      args:
+        executable: /bin/bash
+        chdir: /root
+    - name: deploy
+      shell: /root/dcos_generate_config.sh --deploy >> dcos_deploy.log 2>&1
+      args:
+        executable: /bin/bash
+        chdir: /root
+    - name: postflight
+      shell: /root/dcos_generate_config.sh --postflight >> dcos_postflight.log 2>&1
+      args:
+        executable: /bin/bash
+        chdir: /root
