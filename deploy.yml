@@ -16,6 +16,17 @@
         opts: nodev,nosuid,exec
         fstype: xfs
         state: present
+        
+    - name: grow lv_var
+      lvol:
+        vg: vg_00
+        lv: lv_var
+        size: 100g
+    - name: grow /var
+      filesystem:
+        fstype: xfs
+        dev: /dev/mapper/vg_00-lv_var
+        resizefs: yes
 
     - name: required packages
       yum:
