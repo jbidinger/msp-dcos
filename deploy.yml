@@ -46,9 +46,6 @@
         name: docker
         enabled: yes
         state: restarted
-#    - name: Docker Thinpool Setup
-#      include: docker-thin.yml
-
 
 - hosts: master:agent
   remote_user: root
@@ -123,14 +120,7 @@
   gather_facts: no
   tasks:    
     # Prereq installs a override.conf file for docker specifying the overlay driver
-    # we need to fix it to use devicemapper lvm
-#    - name: fix storage driver after prereq
-#      copy:
-#        src: files/docker.conf
-#        dest: /etc/systemd/system/docker.service.d/override.conf
-#        owner: root
-#        group: root
-#        mode: 0444
+    # we need to restart docker here to put it into effect
     - name: reload systemd docker service
       command: '/usr/bin/systemctl daemon-reload'
     - name: Docker Service
@@ -149,22 +139,14 @@
         executable: /bin/bash
         chdir: /root
 
-#    - name: deploy
-#      shell: /root/dcos_generate_config.sh --deploy >> dcos_deploy.log 2>&1
-#      args:
-#        executable: /bin/bash
-#        chdir: /root
-#    - name: postflight
-#      shell: /root/dcos_generate_config.sh --postflight >> dcos_postflight.log 2>&1
-#      args:
-#        executable: /bin/bash
-#        chdir: /root
-
-#- hosts: master:agent
-#  remote_user: root
-#  gather_facts: no
-#
-#  tasks:
-#    - name: Docker Thinpool Setup
-#      include: docker-thin.yml
+    - name: deploy
+      shell: /root/dcos_generate_config.sh --deploy >> dcos_deploy.log 2>&1
+      args:
+        executable: /bin/bash
+        chdir: /root
+    - name: postflight
+      shell: /root/dcos_generate_config.sh --postflight >> dcos_postflight.log 2>&1
+      args:
+        executable: /bin/bash
+        chdir: /root
 
