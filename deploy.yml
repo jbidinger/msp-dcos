@@ -41,73 +41,14 @@
         state: installed
         update_cache: yes
 
-    - name: Check docker thinpool
-      command: '/usr/sbin/vgs docker'
-      register: vgs_docker
-      ignore_errors: yes
-
-    - block:
-      - name: docker volume group
-        lvg:
-          vg: docker
-          pvs: /dev/sdb
-      # lvcreate --wipesignatures y -n thinpool docker -l 95%VG
-      - name: docker lvs thinpool
-        lvol:
-          lv: thinpool
-          vg: docker
-          size: '95%VG'
-          opts: '--wipesignatures y'
-
-      #lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG    
-      - name: docker lvs thinpoolmeta
-        lvol:
-          lv: thinpoolmeta
-          vg: docker
-          size: '1%VG'
-          opts: '--wipesignatures y'
-
-      - name: make lv thin
-        command: '/usr/sbin/lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta'
-
-      - name: docker-thinpool profile
-        copy:
-          src: files/docker-thinpool.profile
-          dest: /etc/lvm/profile/docker-thinpool.profile
-          owner: root
-          group: root
-          mode: 0444
-
-      - name: Apply lvm profile to thin pool
-        command: '/usr/sbin/lvchange --metadataprofile docker-thinpool docker/thinpool'
-
-      - name: Enable lv monitoring
-        command: '/usr/sbin/lvs -o+seg_monitor'
-    
-      when: vgs_docker.rc != 0
-
-    - name: docker systemd conf directory
-      file: 
-        path: /etc/systemd/system/docker.service.d
-        state: directory 
-        owner: root 
-        group: root
-        mode: 0755
-    - name: docker systemd configuration
-      copy:
-        src: files/docker.conf
-        dest: /etc/systemd/system/docker.service.d/override.conf
-        owner: root
-        group: root
-        mode: 0644
-    - name: reload systemd docker service
-      command: '/usr/bin/systemctl daemon-reload'
-
     - name: Docker Service
       service: 
         name: docker
         enabled: yes
         state: restarted
+#    - name: Docker Thinpool Setup
+#      include: docker-thin.yml
+
 
 - hosts: master:agent
   remote_user: root
@@ -176,18 +117,54 @@
       args:
         executable: /bin/bash
         chdir: /root
+
+- hosts: master:agent
+  remote_user: root
+  gather_facts: no
+  tasks:    
+    # Prereq installs a override.conf file for docker specifying the overlay driver
+    # we need to fix it to use devicemapper lvm
+#    - name: fix storage driver after prereq
+#      copy:
+#        src: files/docker.conf
+#        dest: /etc/systemd/system/docker.service.d/override.conf
+#        owner: root
+#        group: root
+#        mode: 0444
+    - name: reload systemd docker service
+      command: '/usr/bin/systemctl daemon-reload'
+    - name: Docker Service
+      service: 
+        name: docker
+        enabled: yes
+        state: restarted
+
+- hosts: boot
+  remote_user: root
+  gather_facts: no
+  tasks:
     - name: preflight
       shell: /root/dcos_generate_config.sh --preflight >> dcos_preflight.log 2>&1
       args:
         executable: /bin/bash
         chdir: /root
-    - name: deploy
-      shell: /root/dcos_generate_config.sh --deploy >> dcos_deploy.log 2>&1
-      args:
-        executable: /bin/bash
-        chdir: /root
-    - name: postflight
-      shell: /root/dcos_generate_config.sh --postflight >> dcos_postflight.log 2>&1
-      args:
-        executable: /bin/bash
-        chdir: /root
+
+#    - name: deploy
+#      shell: /root/dcos_generate_config.sh --deploy >> dcos_deploy.log 2>&1
+#      args:
+#        executable: /bin/bash
+#        chdir: /root
+#    - name: postflight
+#      shell: /root/dcos_generate_config.sh --postflight >> dcos_postflight.log 2>&1
+#      args:
+#        executable: /bin/bash
+#        chdir: /root
+
+#- hosts: master:agent
+#  remote_user: root
+#  gather_facts: no
+#
+#  tasks:
+#    - name: Docker Thinpool Setup
+#      include: docker-thin.yml
+

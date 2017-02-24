@@ -1,0 +1,106 @@
+---
+
+# Switch docker to thinpool storage driver
+
+- name: Check docker thinpool
+  command: '/usr/sbin/vgs docker'
+  register: vgs_docker
+  ignore_errors: yes
+
+- block:
+  - name: docker volume group
+    lvg:
+      vg: docker
+      pvs: /dev/sdb
+  # lvcreate --wipesignatures y -n thinpool docker -l 95%VG
+  - name: docker lvs thinpool
+    lvol:
+      lv: thinpool
+      vg: docker
+      size: '95%VG'
+      opts: '--wipesignatures y'
+
+  #lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG    
+  - name: docker lvs thinpoolmeta
+    lvol:
+      lv: thinpoolmeta
+      vg: docker
+      size: '1%VG'
+      opts: '--wipesignatures y'
+
+  - name: make lv thin
+    command: '/usr/sbin/lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta'
+
+  - name: docker-thinpool profile
+    copy:
+      src: files/docker-thinpool.profile
+      dest: /etc/lvm/profile/docker-thinpool.profile
+      owner: root
+      group: root
+      mode: 0444
+
+  - name: Apply lvm profile to thin pool
+    command: '/usr/sbin/lvchange --metadataprofile docker-thinpool docker/thinpool'
+
+  - name: Enable lv monitoring
+    command: '/usr/sbin/lvs -o+seg_monitor'
+
+  when: vgs_docker.rc != 0
+
+- name: /etc/docker directory
+  file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: 0644
+- name: Docker daemon.json
+  copy:
+    src: files/daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: 0644
+  register: override
+
+
+#- name: docker systemd conf directory
+#  file: 
+#    path: /etc/systemd/system/docker.service.d
+#    state: directory 
+#    owner: root 
+#    group: root
+#    mode: 0755
+
+#- name: docker systemd configuration
+#  copy:
+#    src: files/docker.conf
+#    dest: /etc/systemd/system/docker.service.d/override.conf
+#    owner: root
+#    group: root
+#    mode: 0644
+#  register: override
+
+- block:
+  - name: Stop Docker Service
+    service: 
+      name: docker
+      enabled: yes
+      state: stopped
+
+  - name: empty /var/lib/docker
+    file:
+      path: /var/lib/docker
+      state: absent
+
+  - name: reload systemd docker service
+    command: '/usr/bin/systemctl daemon-reload'
+
+  - name: Docker Service
+    service: 
+      name: docker
+      enabled: yes
+      state: restarted
+
+  when: override.changed
+
